@@ -194,7 +194,7 @@ def extraer_datos_coopvalili(data: dict | None) -> dict[str, Any]:
 
     aportes = aporte.get("saldo_fecha", 0)
     aporte_mensual = aporte.get("valor_aporte_mensual", 0)
-    ahorros_fondo = 0  # la API actual no expone ahorros voluntarios
+    ahorros_fondo = 0
 
     return {
         "asociado": asociado,
@@ -333,16 +333,22 @@ def procesar_solicitud(payload: dict) -> dict[str, Any]:
                 "transunion": API_NO_DATA,
                 "mensaje": "Campo 'id' requerido",
             },
+            "apis": {
+                "coopvalili": None,
+                "transunion": None,
+            },
         }
 
     cedula_str = str(cedula)
 
+    # Coopvalili
     coop_raw, coop_status = consultar_coopvalili(cedula_str)
     coop = extraer_datos_coopvalili(coop_raw)
 
     if coop_status == API_OK and not coop["asociado"]:
         coop_status = API_NO_DATA
 
+    # TransUnion
     salario = to_int(payload.get("salario"))
     tu_raw, tu_status = consultar_transunion(
         cedula_str, coop["primer_apellido"], salario
@@ -381,6 +387,10 @@ def procesar_solicitud(payload: dict) -> dict[str, Any]:
             "coopvalili": coop_status,
             "transunion": tu_status,
             "mensaje": mensaje,
+        },
+        "apis": {
+            "coopvalili": coop_raw,
+            "transunion": tu_raw,
         },
     }
 
@@ -422,23 +432,21 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     cedula = str(payload.get("id", "sin_cedula"))
 
-    # Leer el radicado de valida1 desde blob para relacionar registros
     radicado_valida1 = None
     try:
         valida_blob = load_json_blob_by_id(cedula, "valida_output.json")
         radicado_valida1 = valida_blob.get("radicado")
     except Exception:
-        pass  # valida1 no existe aún para esta cedula; FK queda en NULL
+        pass
 
-    # Guardar en Supabase
     try:
         save_motor_data_supabase(radicado_valida1, cedula, salida)
         salida["_supabase_save"] = "OK"
     except Exception as exc:
-        log.warning("fallo supabase motor_data", extra={"cedula": cedula, "error": str(exc)})
+        log.warning("fallo supabase motor_data",
+                    extra={"cedula": cedula, "error": str(exc)})
         salida["_supabase_save"] = f"ERROR: {str(exc)[:200]}"
 
-    # Guardar en Blob
     try:
         save_json_blob_by_id(cedula, "motor_data_output.json", salida)
         salida["_blob_save"] = "OK"
@@ -447,8 +455,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         log.warning("fallo blob", extra={"cedula": cedula, "error": str(exc)})
         salida["_blob_save"] = f"ERROR: {str(exc)[:200]}"
 
+    respuesta = {k: v for k, v in salida.items() if k != "apis"}
+
     return func.HttpResponse(
-        json.dumps(salida, ensure_ascii=False, default=str),
+        json.dumps(respuesta, ensure_ascii=False, default=str),
         status_code=200,
         mimetype="application/json",
     )
