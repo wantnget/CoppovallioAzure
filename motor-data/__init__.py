@@ -10,7 +10,8 @@ import azure.functions as func
 from shared.auth import validar_api_key
 from shared.exceptions import AuthError
 from shared.logger import get_logger
-from shared.blob_loader import save_json_blob_by_id
+from shared.blob_loader import save_json_blob_by_id, load_json_blob_by_id
+from shared.supabase_saver import save_motor_data_supabase
 
 log = get_logger("motor_data")
 
@@ -421,7 +422,23 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     cedula = str(payload.get("id", "sin_cedula"))
 
-    # Guardar en Blob (sin romper la respuesta si falla)
+    # Leer el radicado de valida1 desde blob para relacionar registros
+    radicado_valida1 = None
+    try:
+        valida_blob = load_json_blob_by_id(cedula, "valida_output.json")
+        radicado_valida1 = valida_blob.get("radicado")
+    except Exception:
+        pass  # valida1 no existe aún para esta cedula; FK queda en NULL
+
+    # Guardar en Supabase
+    try:
+        save_motor_data_supabase(radicado_valida1, cedula, salida)
+        salida["_supabase_save"] = "OK"
+    except Exception as exc:
+        log.warning("fallo supabase motor_data", extra={"cedula": cedula, "error": str(exc)})
+        salida["_supabase_save"] = f"ERROR: {str(exc)[:200]}"
+
+    # Guardar en Blob
     try:
         save_json_blob_by_id(cedula, "motor_data_output.json", salida)
         salida["_blob_save"] = "OK"
