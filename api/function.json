@@ -7,9 +7,10 @@
       "direction": "in",
       "name": "req",
       "methods": [
+        "GET",
         "POST"
       ],
-      "route": "motor/run"
+      "route": "api"
     },
     {
       "type": "http",
