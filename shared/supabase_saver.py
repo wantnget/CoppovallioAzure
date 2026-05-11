@@ -30,7 +30,6 @@ def _base_url() -> str:
 
 
 def save_valida1_supabase(radicado: str, cedula: str, data: dict) -> None:
-    """Upsert de valida1 en Supabase. Idempotente por radicado (UNIQUE)."""
     result = data.get("result") or {}
     datos = data.get("datos_asociado") or {}
 
@@ -86,10 +85,30 @@ def save_valida1_supabase(radicado: str, cedula: str, data: dict) -> None:
     log.info("supabase valida1 guardado", extra={"radicado": radicado})
 
 
+def save_identity_supabase(radicado: str, cedula: str, data: dict) -> None:
+    row = {
+        "radicado_valida1": radicado,
+        "cedula": cedula,
+        "tipo_validacion": data.get("tipo_validacion"),
+        "status_document": data.get("status_document"),
+        "status_face": data.get("status_face"),
+        "estado_validacion": data.get("estado_validacion"),
+        "request_json": data.get("request_json"),
+    }
+
+    resp = requests.post(
+        f"{_base_url()}/identity_validations?on_conflict=radicado_valida1",
+        headers=_headers(upsert=True),
+        json=row,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    log.info("supabase identity guardado", extra={"radicado": radicado})
+
+
 def save_motor_data_supabase(
     radicado_valida1: str | None, cedula: str, data: dict
 ) -> None:
-    """Insert de motor_data en Supabase, vinculado al radicado de valida1."""
     detallado = data.get("detallado_want") or {}
     meta = data.get("meta") or {}
 

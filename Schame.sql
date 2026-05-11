@@ -97,3 +97,18 @@ CREATE TABLE IF NOT EXISTS motor_data_results (
 
 CREATE INDEX IF NOT EXISTS idx_motor_data_cedula   ON motor_data_results (cedula);
 CREATE INDEX IF NOT EXISTS idx_motor_data_radicado ON motor_data_results (radicado_valida1);
+
+CREATE TABLE IF NOT EXISTS identity_validations (
+    id                BIGSERIAL   PRIMARY KEY,
+    radicado_valida1  TEXT        UNIQUE REFERENCES valida1_results (radicado) ON DELETE SET NULL,
+    cedula            TEXT        NOT NULL,
+    tipo_validacion   TEXT,
+    status_document   SMALLINT,
+    status_face       SMALLINT,
+    estado_validacion SMALLINT,
+    request_json      JSONB,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_identity_cedula    ON identity_validations (cedula);
+CREATE INDEX IF NOT EXISTS idx_identity_radicado  ON identity_validations (radicado_valida1);
