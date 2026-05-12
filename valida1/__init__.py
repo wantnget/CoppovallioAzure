@@ -9,13 +9,11 @@ from shared.auth import validar_api_key
 from shared.exceptions import AuthError
 from shared.logger import get_logger
 from shared.blob_loader import save_json_blob_by_id
-from shared.supabase_saver import save_valida1_supabase
 
 log = get_logger("valida1")
 
 TIMEOUT = 15
 EDAD_MINIMA = 18
-ANTIGUEDAD_MINIMA_MESES = 1
 FORMATO_FECHA_API = "%m/%d/%Y"
 
 VALIDO = 1
@@ -27,6 +25,7 @@ def generar_radicado(cedula: str) -> str:
 
 
 def parsear_fecha(fecha_str: str) -> datetime | None:
+    """Parsea una fecha en el formato que entrega la API (M/D/YYYY)."""
     if not fecha_str:
         return None
     try:
@@ -40,13 +39,6 @@ def calcular_edad(fecha_nac: datetime, hoy: datetime) -> int:
     if (hoy.month, hoy.day) < (fecha_nac.month, fecha_nac.day):
         edad -= 1
     return edad
-
-
-def calcular_meses(fecha_ini: datetime, hoy: datetime) -> int:
-    meses = (hoy.year - fecha_ini.year) * 12 + (hoy.month - fecha_ini.month)
-    if hoy.day < fecha_ini.day:
-        meses -= 1
-    return meses
 
 
 def consultar_coopvalili(cedula: str) -> dict | None:
@@ -73,6 +65,7 @@ def consultar_coopvalili(cedula: str) -> dict | None:
 
 
 def extraer_asociado(data_api: dict | None) -> dict | None:
+    """Devuelve el primer asociado del response, o None si no existe."""
     if not isinstance(data_api, dict):
         return None
     lista = data_api.get("asociadoList")
@@ -82,15 +75,22 @@ def extraer_asociado(data_api: dict | None) -> dict | None:
     return asociado if isinstance(asociado, dict) else None
 
 
-def validar_id_api(asociado: dict | None) -> int:
+def validar_asociado(asociado: dict | None) -> int:
+    """El campo 'asociado' debe ser igual a 1."""
     if not asociado:
         return NO_VALIDO
-    nombre = str(asociado.get("nombre", "")).strip()
-    apellido = str(asociado.get("primer_apellido", "")).strip()
-    return VALIDO if (nombre and apellido) else NO_VALIDO
+    return VALIDO if asociado.get("asociado") == 1 else NO_VALIDO
+
+
+def validar_activo(asociado: dict | None) -> int:
+    """El campo 'activo' debe ser igual a 1."""
+    if not asociado:
+        return NO_VALIDO
+    return VALIDO if asociado.get("activo") == 1 else NO_VALIDO
 
 
 def validar_edad(asociado: dict | None) -> int:
+    """El asociado debe ser mayor de 18 años."""
     if not asociado:
         return NO_VALIDO
     fecha_nac = parsear_fecha(asociado.get("fechaNacimiento"))
@@ -100,17 +100,8 @@ def validar_edad(asociado: dict | None) -> int:
     return VALIDO if edad >= EDAD_MINIMA else NO_VALIDO
 
 
-def validar_antiguedad(asociado: dict | None) -> int:
-    if not asociado:
-        return NO_VALIDO
-    fecha_ing = parsear_fecha(asociado.get("fecha_ingreso"))
-    if not fecha_ing:
-        return NO_VALIDO
-    meses = calcular_meses(fecha_ing, datetime.now())
-    return VALIDO if meses >= ANTIGUEDAD_MINIMA_MESES else NO_VALIDO
-
-
 def validar_no_retirado(asociado: dict | None) -> int:
+    """El asociado no debe tener una fecha de retiro vigente."""
     if not asociado:
         return NO_VALIDO
     fecha_retiro_str = asociado.get("fechaRetiro")
@@ -129,9 +120,9 @@ def procesar_solicitud(payload: dict) -> dict:
         return {
             "radicado": None,
             "result": {
-                "valida_id": NO_VALIDO,
+                "valida_asociado": NO_VALIDO,
+                "valida_activo": NO_VALIDO,
                 "valida_edad": NO_VALIDO,
-                "valida_antiguedad": NO_VALIDO,
                 "valida_no_retirado": NO_VALIDO,
                 "valida1": NO_VALIDO,
                 "mensaje": "Campo 'id' requerido",
@@ -143,31 +134,33 @@ def procesar_solicitud(payload: dict) -> dict:
     data_api = consultar_coopvalili(str(cedula))
     asociado = extraer_asociado(data_api)
 
-    valida_id = validar_id_api(asociado)
-
-    if valida_id == VALIDO:
+    if asociado:
+        valida_asociado = validar_asociado(asociado)
+        valida_activo = validar_activo(asociado)
         valida_edad = validar_edad(asociado)
-        valida_antiguedad = validar_antiguedad(asociado)
         valida_no_retirado = validar_no_retirado(asociado)
     else:
+        valida_asociado = NO_VALIDO
+        valida_activo = NO_VALIDO
         valida_edad = NO_VALIDO
-        valida_antiguedad = NO_VALIDO
         valida_no_retirado = NO_VALIDO
 
-    todas = [valida_id, valida_edad, valida_antiguedad, valida_no_retirado]
+    todas = [valida_asociado, valida_activo, valida_edad, valida_no_retirado]
     if all(v == VALIDO for v in todas):
         valida1 = VALIDO
         mensaje = "Validaciones exitosas"
     else:
         valida1 = NO_VALIDO
         razones = []
-        if valida_id == NO_VALIDO:
+        if not asociado:
             razones.append("usuario sin datos en Coopvalili")
         else:
+            if valida_asociado == NO_VALIDO:
+                razones.append("usuario no es asociado")
+            if valida_activo == NO_VALIDO:
+                razones.append("usuario inactivo")
             if valida_edad == NO_VALIDO:
                 razones.append("usuario menor de 18 años")
-            if valida_antiguedad == NO_VALIDO:
-                razones.append("antigüedad menor a 1 mes")
             if valida_no_retirado == NO_VALIDO:
                 razones.append("usuario retirado")
         mensaje = "; ".join(razones)
@@ -175,9 +168,9 @@ def procesar_solicitud(payload: dict) -> dict:
     return {
         "radicado": radicado,
         "result": {
-            "valida_id": valida_id,
+            "valida_asociado": valida_asociado,
+            "valida_activo": valida_activo,
             "valida_edad": valida_edad,
-            "valida_antiguedad": valida_antiguedad,
             "valida_no_retirado": valida_no_retirado,
             "valida1": valida1,
             "mensaje": mensaje,
@@ -219,14 +212,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     cedula = str(payload.get("id", "sin_cedula"))
-    radicado = valida_out.get("radicado") or ""
-
-    try:
-        save_valida1_supabase(radicado, cedula, valida_out)
-        valida_out["_supabase_save"] = "OK"
-    except Exception as exc:
-        log.warning("fallo supabase valida1", extra={"cedula": cedula, "error": str(exc)})
-        valida_out["_supabase_save"] = f"ERROR: {str(exc)[:200]}"
 
     try:
         save_json_blob_by_id(cedula, "valida_output.json", valida_out)
