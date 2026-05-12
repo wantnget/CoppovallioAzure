@@ -458,14 +458,17 @@ def calcular_SCOR_INGRESOS(data: dict, resultados: dict):
 
 
 def calcular_TOTALES_SCOR(data: dict, resultados: dict) -> float:
-    return (resultados['USARIO_CREDITO'] * 0.2
-            + resultados['SCOR_NIVEL_RIESGO'] * 0.3
-            + resultados['SCOR_EDAD'] * 0.05
-            + resultados['SCOR_PCARGO'] * 0.05
-            + resultados['SCOR_VIVIENDA'] * 0.1
-            + resultados['SCOR_ANT_COOP'] * 0.15
-            + resultados['SCOR_ANT_LABORAL'] * 0.1
-            + resultados['SCOR_INGRESOS'] * 0.05)
+    return round(
+        resultados['USARIO_CREDITO'] * 0.2
+        + resultados['SCOR_NIVEL_RIESGO'] * 0.3
+        + resultados['SCOR_EDAD'] * 0.05
+        + resultados['SCOR_PCARGO'] * 0.05
+        + resultados['SCOR_VIVIENDA'] * 0.1
+        + resultados['SCOR_ANT_COOP'] * 0.15
+        + resultados['SCOR_ANT_LABORAL'] * 0.1
+        + resultados['SCOR_INGRESOS'] * 0.05,
+        2,
+    )
 
 
 def calcular_PERFIL(data: dict, resultados: dict) -> str:
