@@ -112,3 +112,127 @@ CREATE TABLE IF NOT EXISTS identity_validations (
 
 CREATE INDEX IF NOT EXISTS idx_identity_cedula    ON identity_validations (cedula);
 CREATE INDEX IF NOT EXISTS idx_identity_radicado  ON identity_validations (radicado_valida1);
+
+CREATE TABLE IF NOT EXISTS motor_process_results (
+    id                          BIGSERIAL   PRIMARY KEY,
+    radicado                    TEXT        NOT NULL UNIQUE,
+    cedula                      TEXT        NOT NULL,
+    status                      TEXT,
+
+    -- Scores y Perfil
+    perfil                      TEXT,
+    totales_scor                NUMERIC,
+    usario_credito              NUMERIC,
+    scor_nivel_riesgo           NUMERIC,
+    scor_edad                   NUMERIC,
+    scor_pcargo                 NUMERIC,
+    scor_vivienda               NUMERIC,
+    scor_ant_coop               NUMERIC,
+    scor_ant_laboral            NUMERIC,
+    scor_ingresos               NUMERIC,
+
+    -- Ingresos y Egresos
+    ingresos                    NUMERIC,
+    egresos                     NUMERIC,
+    minimo_vital                NUMERIC,
+    resumen_salarial            NUMERIC,
+    cuota_tdc                   NUMERIC,
+    descuentos_ley              NUMERIC,
+
+    -- Cuotas y Montos
+    cuota_max_endeudamiento_mensual     NUMERIC,
+    cuota_max_endeudamiento_periodica   NUMERIC,
+    cuota_max_capacidad_mensual         NUMERIC,
+    cuota_max_capacidad_periodica       NUMERIC,
+    cuota_max_capacidad                 NUMERIC,
+    cuota_periodica_solicitada          NUMERIC,
+    cuota_definitiva                    NUMERIC,
+
+    -- Límites de Deuda
+    maximo_deuda_endeudamiento          NUMERIC,
+    maximo_deuda_desprotegido           NUMERIC,
+    valor_final_credito_motor           NUMERIC,
+    valor_desprotegido_max_linea        NUMERIC,
+    total_ahorros_prestaciones          NUMERIC,
+
+    -- Monto Definitivo y Reglas
+    regla1_monto_motor_ge_solicitud     SMALLINT,
+    regla2_monto_motor_ge_param         SMALLINT,
+    regla3_param_ge_monto_motor         SMALLINT,
+    monto_definitivo                    NUMERIC,
+
+    -- Endeudamiento
+    endeudamiento_actual                NUMERIC,
+    endeudamiento_actual_cupo           NUMERIC,
+    endeudamiento_proyectado            NUMERIC,
+    endeudamiento_proyectado_cupo       NUMERIC,
+    maximo_endeudamiento                NUMERIC,
+
+    -- Cumplimiento de Criterios
+    cumple_end                          SMALLINT,
+    cumple_sol                          SMALLINT,
+    cumple_disp                         SMALLINT,
+    cumple_des                          SMALLINT,
+    cumplimiento_4_criterios            SMALLINT,
+
+    -- Solvencia y Disponible
+    solvencia                           NUMERIC,
+    disponible                          NUMERIC,
+
+    -- Desprotegido
+    desprotegido                        NUMERIC,
+    desprotegido_maximo                 NUMERIC,
+
+    -- Concepto Final
+    concepto_definitivo                 TEXT,
+    viable_cmd                          NUMERIC,
+
+    -- Bloque 1
+    egresos_volante_ajustado_b1         NUMERIC,
+    total_egresos_b1                    NUMERIC,
+    capacidad_pago_b1                   NUMERIC,
+    monto_credito_b1_pre                NUMERIC,
+    monto_credito_b1                    NUMERIC,
+    endeudamiento_proyectado_b1         NUMERIC,
+    cumple_end_b1                       SMALLINT,
+    cumple_sol_b1                       SMALLINT,
+    cumple_disp_b1                      SMALLINT,
+    cumple_des_b1                       SMALLINT,
+    cumple_4_criterios_b1               SMALLINT,
+    solvencia_b1                        NUMERIC,
+    desprotegido_b1                     NUMERIC,
+
+    -- Bloque 2
+    total_egresos_b2                    NUMERIC,
+    capacidad_pago_b2                   NUMERIC,
+    monto_credito_b2_pre                NUMERIC,
+    monto_credito_b2                    NUMERIC,
+    endeudamiento_proyectado_b2         NUMERIC,
+    cumple_end_b2                       SMALLINT,
+    cumple_sol_b2                       SMALLINT,
+    cumple_disp_b2                      SMALLINT,
+    cumple_des_b2                       SMALLINT,
+    cumple_4_criterios_b2               SMALLINT,
+    solvencia_b2                        NUMERIC,
+    desprotegido_b2                     NUMERIC,
+
+    -- Bloque 3
+    total_egresos_b3                    NUMERIC,
+    capacidad_pago_b3                   NUMERIC,
+    monto_credito_b3_pre                NUMERIC,
+    monto_credito_b3                    NUMERIC,
+    endeudamiento_proyectado_b3         NUMERIC,
+    cumple_end_b3                       SMALLINT,
+    cumple_sol_b3                       SMALLINT,
+    cumple_disp_b3                      SMALLINT,
+    cumple_des_b3                       SMALLINT,
+    cumple_4_criterios_b3               SMALLINT,
+    solvencia_b3                        NUMERIC,
+    desprotegido_b3                     NUMERIC,
+
+    raw_json                            JSONB,
+    created_at                          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_motor_process_cedula    ON motor_process_results (cedula);
+CREATE INDEX IF NOT EXISTS idx_motor_process_status    ON motor_process_results (status);

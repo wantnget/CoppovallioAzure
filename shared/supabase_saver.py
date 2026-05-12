@@ -163,3 +163,122 @@ def save_motor_data_supabase(
     )
     resp.raise_for_status()
     log.info("supabase motor_data guardado", extra={"cedula": cedula})
+
+
+def save_motor_process_supabase(radicado: str, cedula: str, data: dict) -> None:
+    processing = data.get("processing") or {}
+    meta = data.get("meta") or {}
+
+    row = {
+        "radicado": radicado,
+        "cedula": cedula,
+        "status": data.get("status"),
+        # Scores y Perfil
+        "perfil": processing.get("PERFIL"),
+        "totales_scor": processing.get("TOTALES_SCOR"),
+        "usario_credito": processing.get("USARIO_CREDITO"),
+        "scor_nivel_riesgo": processing.get("SCOR_NIVEL_RIESGO"),
+        "scor_edad": processing.get("SCOR_EDAD"),
+        "scor_pcargo": processing.get("SCOR_PCARGO"),
+        "scor_vivienda": processing.get("SCOR_VIVIENDA"),
+        "scor_ant_coop": processing.get("SCOR_ANT_COOP"),
+        "scor_ant_laboral": processing.get("SCOR_ANT_LABORAL"),
+        "scor_ingresos": processing.get("SCOR_INGRESOS"),
+        # Ingresos y Egresos
+        "ingresos": processing.get("Ingresos"),
+        "egresos": processing.get("Egresos"),
+        "minimo_vital": processing.get("Mínimo Vital"),
+        "resumen_salarial": processing.get("Resumen Salarial del Asociado"),
+        "cuota_tdc": processing.get("Cuota TDC"),
+        "descuentos_ley": processing.get("Descuentos de Ley"),
+        # Cuotas y Montos
+        "cuota_max_endeudamiento_mensual": processing.get("Cuota Máximo por Endeudamiento Mensual"),
+        "cuota_max_endeudamiento_periodica": processing.get("Cuota Máximo por Endeudamiento Periódica"),
+        "cuota_max_capacidad_mensual": processing.get("Cuota Máxima por Capacidad Mensual"),
+        "cuota_max_capacidad_periodica": processing.get("Cuota Máxima por Capacidad Periódica"),
+        "cuota_max_capacidad": processing.get("Cuota Máxima por Capacidad"),
+        "cuota_periodica_solicitada": processing.get("Cuota Periodica Solicitada"),
+        "cuota_definitiva": processing.get("Cuota definitiva"),
+        # Límites de Deuda
+        "maximo_deuda_endeudamiento": processing.get("Maximo Deuda por Endeudamiento"),
+        "maximo_deuda_desprotegido": processing.get("Maximo Deuda por Desprotegido"),
+        "valor_final_credito_motor": processing.get("Valor Final del Crédito por Motor"),
+        "valor_desprotegido_max_linea": processing.get("VALOR DESPROTEGIDO MAX DE LA LINEA"),
+        "total_ahorros_prestaciones": processing.get("Total Ahorros+Prestaciones"),
+        # Monto Definitivo y Reglas
+        "regla1_monto_motor_ge_solicitud": processing.get("Regla 1 monto_motor > = monto_solicitud"),
+        "regla2_monto_motor_ge_param": processing.get("Regla 2 monto_motor > = param"),
+        "regla3_param_ge_monto_motor": processing.get("Regla 3 param > = monto_motor"),
+        "monto_definitivo": processing.get("Monto definitivo"),
+        # Endeudamiento
+        "endeudamiento_actual": processing.get("Endeudamiento Actual"),
+        "endeudamiento_actual_cupo": processing.get("Endeudamiento Actual con Cupo Coopvalili"),
+        "endeudamiento_proyectado": processing.get("Endeudamiento Proyectado"),
+        "endeudamiento_proyectado_cupo": processing.get("Endeudamiento Proyectado Con Cupo Coopvalili"),
+        "maximo_endeudamiento": processing.get("Máximo Endeudamiento"),
+        # Cumplimiento de Criterios
+        "cumple_end": processing.get("cumple_end"),
+        "cumple_sol": processing.get("cumple_sol"),
+        "cumple_disp": processing.get("cumple_disp"),
+        "cumple_des": processing.get("cumple_des"),
+        "cumplimiento_4_criterios": processing.get("Cumplimiento 4 criterios"),
+        # Solvencia y Disponible
+        "solvencia": processing.get("Solvencia"),
+        "disponible": processing.get("Disponible"),
+        # Desprotegido
+        "desprotegido": processing.get("Desprotegido"),
+        "desprotegido_maximo": processing.get("Desprotegido Máximo"),
+        # Concepto Final
+        "concepto_definitivo": processing.get("Concepto definitivo"),
+        "viable_cmd": processing.get("VIABLE  CMD"),
+        # Bloque 1
+        "egresos_volante_ajustado_b1": processing.get("Egresos volante ajustado_1"),
+        "total_egresos_b1": processing.get("Total egresos_1"),
+        "capacidad_pago_b1": processing.get("Capacidad de pago_1"),
+        "monto_credito_b1_pre": processing.get("Monto credito_1_pre"),
+        "monto_credito_b1": processing.get("Monto credito_1"),
+        "endeudamiento_proyectado_b1": processing.get("Endeudamiento Proyectado_b1"),
+        "cumple_end_b1": processing.get("cumple_end_b1"),
+        "cumple_sol_b1": processing.get("cumple_sol_b1"),
+        "cumple_disp_b1": processing.get("cumple_disp_b1"),
+        "cumple_des_b1": processing.get("cumple_des_b1"),
+        "cumple_4_criterios_b1": processing.get("Cumple 4 criterios_b1"),
+        "solvencia_b1": processing.get("Solvencia_b1"),
+        "desprotegido_b1": processing.get("desprotegido_b1"),
+        # Bloque 2
+        "total_egresos_b2": processing.get("Total egresos_2"),
+        "capacidad_pago_b2": processing.get("Capacidad de pago_2"),
+        "monto_credito_b2_pre": processing.get("Monto credito_2_pre"),
+        "monto_credito_b2": processing.get("Monto credito_2"),
+        "endeudamiento_proyectado_b2": processing.get("Endeudamiento Proyectado_b2"),
+        "cumple_end_b2": processing.get("cumple_end_b2"),
+        "cumple_sol_b2": processing.get("cumple_sol_b2"),
+        "cumple_disp_b2": processing.get("cumple_disp_b2"),
+        "cumple_des_b2": processing.get("cumple_des_b2"),
+        "cumple_4_criterios_b2": processing.get("Cumple 4 criterios_b2"),
+        "solvencia_b2": processing.get("Solvencia_b2"),
+        "desprotegido_b2": processing.get("desprotegido_b2"),
+        # Bloque 3
+        "total_egresos_b3": processing.get("Total egresos_3"),
+        "capacidad_pago_b3": processing.get("Capacidad de pago_3"),
+        "monto_credito_b3_pre": processing.get("Monto credito_3_pre"),
+        "monto_credito_b3": processing.get("Monto credito_3"),
+        "endeudamiento_proyectado_b3": processing.get("Endeudamiento Proyectado_b3"),
+        "cumple_end_b3": processing.get("cumple_end_b3"),
+        "cumple_sol_b3": processing.get("cumple_sol_b3"),
+        "cumple_disp_b3": processing.get("cumple_disp_b3"),
+        "cumple_des_b3": processing.get("cumple_des_b3"),
+        "cumple_4_criterios_b3": processing.get("Cumple 4 criterios_b3"),
+        "solvencia_b3": processing.get("Solvencia_b3"),
+        "desprotegido_b3": processing.get("desprotegido_b3"),
+        "raw_json": data,
+    }
+
+    resp = requests.post(
+        f"{_base_url()}/motor_process_results",
+        headers=_headers(upsert=True),
+        json=row,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    log.info("supabase motor_process guardado", extra={"radicado": radicado})
