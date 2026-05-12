@@ -1,3 +1,5 @@
 azure-functions>=1.17
 azure-storage-blob
 requests>=2.31
+numpy-financial
+python-dateutil
