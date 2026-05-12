@@ -29,6 +29,10 @@ PARAM_PLAZO_CONSULTA_TU = 18
 PARAM_MOTIVO_CONSULTA_TU = "24"
 PARAM_TIPO_IDENTIFICACION_TU = "1"
 
+UMBRAL_INSTANCIA_GERENTE = 4_000_000
+INSTANCIA_GERENTE = "Gerente"
+INSTANCIA_COMITE = "comite de credito"
+
 PARAMETRO_CREDITO_POR_LINEA = {
     "Eventos": 1_000_000,
     "Cred.Ord, Gerencia": 2_000_000,
@@ -37,12 +41,6 @@ PARAMETRO_CREDITO_POR_LINEA = {
     "Polizas": 800_000,
     "Soat": 500_000,
     "Turismo": 1_500_000,
-}
-
-INSTANCIA_APROBACION_POR_LINEA = {
-    "Cred.Ord, Gerencia": "Gerencia",
-    "Eventos": "Comité",
-    "Diez Años": "Junta",
 }
 
 CATEGORIAS_DEUDA_SECTOR = [
@@ -103,6 +101,27 @@ def tasa_usura_periodica(tasa_anual: float) -> float:
     return round((1 + tasa_anual) ** (1 / 12) - 1, 4)
 
 
+def calcular_instancia_aprobacion(monto: Any) -> str:
+    """
+    Define la instancia de aprobación según el monto solicitado:
+      - 0 a 4.000.000  -> Gerente
+      - > 4.000.000    -> comite de credito
+    """
+    monto_num = to_float(monto)
+    if monto_num <= UMBRAL_INSTANCIA_GERENTE:
+        return INSTANCIA_GERENTE
+    return INSTANCIA_COMITE
+
+
+def cargar_radicado_valida1(cedula: str) -> str | None:
+    """Carga el radicado generado por valida1 desde el blob, o None si no existe."""
+    try:
+        valida_blob = load_json_blob_by_id(cedula, "valida_output.json")
+        return valida_blob.get("radicado")
+    except Exception:
+        return None
+
+
 def consultar_coopvalili(cedula: str) -> tuple[dict | None, str]:
     base_url = os.environ.get("COOPVALILI_URL", "")
     token = os.environ.get("COOPVALILI_TOKEN", "")
@@ -137,7 +156,7 @@ def consultar_transunion(cedula: str, primer_apellido: str,
         "motivoConsulta": PARAM_MOTIVO_CONSULTA_TU,
         "salario": str(salario),
         "primerApellido": primer_apellido,
-        "usura": f"{PARAM_TASA_USURA * 100 / 12:.2f}",  # mensual
+        "usura": f"{PARAM_TASA_USURA * 100 / 12:.2f}",  
         "plazos": str(PARAM_PLAZO_CONSULTA_TU),
     }
 
@@ -194,7 +213,7 @@ def extraer_datos_coopvalili(data: dict | None) -> dict[str, Any]:
 
     aportes = aporte.get("saldo_fecha", 0)
     aporte_mensual = aporte.get("valor_aporte_mensual", 0)
-    ahorros_fondo = 0
+    ahorros_fondo = 0  
 
     return {
         "asociado": asociado,
@@ -262,10 +281,12 @@ def extraer_datos_transunion(data: dict | None) -> dict[str, Any]:
     }
 
 
-def armar_detallado_want(payload: dict, coop: dict, tu: dict) -> dict[str, Any]:
+def armar_detallado_want(payload: dict, coop: dict, tu: dict,
+                         radicado: str | None) -> dict[str, Any]:
     """Construye el dict con las variables del motor en el orden de la columna B."""
     cedula = payload.get("id", "")
     linea = payload.get("lineaCredito", "")
+    monto = payload.get("monto", 0)
     asociado = coop.get("asociado", {}) or {}
 
     edad = calcular_edad(coop.get("fechaNacimiento", ""))
@@ -275,12 +296,14 @@ def armar_detallado_want(payload: dict, coop: dict, tu: dict) -> dict[str, Any]:
     tasa_usura_per = tasa_usura_periodica(PARAM_TASA_USURA)
 
     parametro_credito = PARAMETRO_CREDITO_POR_LINEA.get(linea, 0)
-    instancia_aprobacion = INSTANCIA_APROBACION_POR_LINEA.get(linea, "Comité")
+    instancia_aprobacion = calcular_instancia_aprobacion(monto)
+    credito_afianzado = to_int(1)
 
     cedula_str = str(cedula)
     id_out = int(cedula_str) if cedula_str.isdigit() else cedula_str
 
     return {
+        "radicado":              radicado,                        # Heredado de valida1
         "garantia":              PARAM_GARANTIA,                  # Parametro
         "id":                    id_out,                          # Chat
         "primer_apellido":       coop["primer_apellido"],         # Solido
@@ -303,16 +326,17 @@ def armar_detallado_want(payload: dict, coop: dict, tu: dict) -> dict[str, Any]:
         "frecuenciaPagos":       payload.get("frecuenciaPagos", ""),  # Chat
         "aportesAhorros":        coop["aportesAhorros"],          # Solido
         "lineaCredito":          linea,                           # Chat
-        "montoSolicitado":       payload.get("monto", 0),         # Chat
+        "montoSolicitado":       monto,                           # Chat
         "parametroCredito":      parametro_credito,               # Parametro
-        "instanciaAprobacion":   instancia_aprobacion,            # Parametro
+        "instanciaAprobacion":   instancia_aprobacion,            # Parametro (segun monto)
+        "creditoAfianzado":      credito_afianzado,               #  (Si=1, No=2)
         "ahorrosFondo":          coop["ahorrosFondo"],            # Solido
         "fechaIngreso":          coop["fechaIngreso"],            # Solido
         "fechaNacimiento":       coop["fechaNacimiento"],         # Solido
         "edad":                  edad,                            # Calculo Motor
         "personasCargo":         payload.get("personasCargo", 0),  # Chat
         # Base Asociados
-        "tipoVivienda":          coop["tipoVivienda"],
+        "tipoVivienda":          4,
         "antiguedadFondo":       antiguedad_fondo,                # Calculo Motor
         "antiguedadLaboral":     antiguedad_laboral,              # Base Asociados
         "tasaUsura":             PARAM_TASA_USURA,                # Parametro
@@ -321,7 +345,7 @@ def armar_detallado_want(payload: dict, coop: dict, tu: dict) -> dict[str, Any]:
     }
 
 
-def procesar_solicitud(payload: dict) -> dict[str, Any]:
+def procesar_solicitud(payload: dict, radicado: str | None) -> dict[str, Any]:
     cedula = payload.get("id")
 
     if not cedula:
@@ -341,14 +365,12 @@ def procesar_solicitud(payload: dict) -> dict[str, Any]:
 
     cedula_str = str(cedula)
 
-    # Coopvalili
     coop_raw, coop_status = consultar_coopvalili(cedula_str)
     coop = extraer_datos_coopvalili(coop_raw)
 
     if coop_status == API_OK and not coop["asociado"]:
         coop_status = API_NO_DATA
 
-    # TransUnion
     salario = to_int(payload.get("salario"))
     tu_raw, tu_status = consultar_transunion(
         cedula_str, coop["primer_apellido"], salario
@@ -358,7 +380,7 @@ def procesar_solicitud(payload: dict) -> dict[str, Any]:
     if tu_status == API_OK and not (tu_raw or {}).get("resultado"):
         tu_status = API_NO_DATA
 
-    detallado = armar_detallado_want(payload, coop, tu)
+    detallado = armar_detallado_want(payload, coop, tu, radicado)
 
     razones = []
     if coop_status == API_FAIL:
@@ -409,7 +431,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    # Parsear body
     try:
         payload = req.get_json()
     except ValueError:
@@ -419,9 +440,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             mimetype="application/json",
         )
 
-    # Lógica principal
+    cedula = str(payload.get("id", "sin_cedula"))
+
+    # Cargar radicado de valida1 antes del procesamiento para incluirlo en el detallado
+    radicado_valida1 = cargar_radicado_valida1(cedula)
+
     try:
-        salida = procesar_solicitud(payload)
+        salida = procesar_solicitud(payload, radicado_valida1)
     except Exception as exc:
         log.error("error en procesar_solicitud", extra={"error": str(exc)})
         return func.HttpResponse(
@@ -429,15 +454,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500,
             mimetype="application/json",
         )
-
-    cedula = str(payload.get("id", "sin_cedula"))
-
-    radicado_valida1 = None
-    try:
-        valida_blob = load_json_blob_by_id(cedula, "valida_output.json")
-        radicado_valida1 = valida_blob.get("radicado")
-    except Exception:
-        pass
 
     try:
         save_motor_data_supabase(radicado_valida1, cedula, salida)
