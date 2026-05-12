@@ -66,6 +66,8 @@ def clean_value(v):
         return v.date().isoformat()
     if isinstance(v, datetime.date):
         return v.isoformat()
+    if isinstance(v, datetime.time):
+        return v.isoformat()
     return v
 
 def supabase_upsert(rows: list[dict]):
