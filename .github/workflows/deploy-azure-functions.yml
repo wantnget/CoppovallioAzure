@@ -1,4 +1,4 @@
-name: CI/CD - Coppovallio Functions
+name: CI/CD - Coppovallio
 
 on:
   push:
@@ -6,19 +6,18 @@ on:
   workflow_dispatch:
 
 env:
+  PYTHON_VERSION: "3.11"
   AZURE_FUNCTIONAPP_NAME: coppovallio-api-prod
   AZURE_FUNCTIONAPP_PACKAGE_PATH: "."
-  PYTHON_VERSION: "3.11"
 
 jobs:
-  build-and-deploy:
+  deploy-azure:
+    name: Deploy → Azure Functions
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -32,10 +31,29 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Functions
+      - name: Deploy
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           scm-do-build-during-deployment: false
           enable-oryx-build: false
+
+  sync-supabase:
+    name: Sync Base_Asociados → Supabase
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - run: pip install openpyxl
+
+      - name: Upsert datos_asociado
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/sync_asociados.py

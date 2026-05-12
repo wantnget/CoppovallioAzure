@@ -71,7 +71,7 @@ def clean_value(v):
     return v
 
 def supabase_upsert(rows: list[dict]):
-    url     = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}"
+    url     = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?on_conflict=cedula"
     payload = json.dumps(rows).encode("utf-8")
     req = urllib.request.Request(
         url,
