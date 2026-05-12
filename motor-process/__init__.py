@@ -943,14 +943,14 @@ def procesar_credito(data: dict) -> dict:
         data, resultados)
     
     campos_porcentaje = [
-    'Endeudamiento Proyectado_b1',
-    'Solvencia_b1',
+        'Endeudamiento Proyectado_b1',
+        'Solvencia_b1',
 
-    'Endeudamiento Proyectado_b2',
-    'Solvencia_b2',
+        'Endeudamiento Proyectado_b2',
+        'Solvencia_b2',
 
-    'Endeudamiento Proyectado_b3',
-    'Solvencia_b3',
+        'Endeudamiento Proyectado_b3',
+        'Solvencia_b3',
 
     ]
 
