@@ -291,10 +291,13 @@ def calcular_Endeudamiento_Actual_Cupo(data: dict, resultados: dict):
 
 def calcular_Endeudamiento_Proyectado(data: dict, resultados: dict):
     try:
-        return _mround((data['egresosVolante'] + resultados['Cuota definitiva']
-                        - data['cuotarecogeCoopvalili']) / resultados['Resumen Salarial del Asociado'], 0.01)
+        return (
+            data['egresosVolante']
+            + resultados['Cuota definitiva']
+            - data['cuotarecogeCoopvalili']
+        ) / resultados['Resumen Salarial del Asociado']
     except Exception:
-        return ""
+        return 0
 
 
 def calcular_Endeudamiento_Proyectado_Cupo(data: dict, resultados: dict):
@@ -315,9 +318,12 @@ def calcular_cumple_end(data: dict, resultados: dict) -> int:
 
 def calcular_Solvencia(data: dict, resultados: dict):
     try:
-        return (resultados['Egresos'] + resultados['Cuota definitiva']) / data['salario']
+        return (
+            resultados['Egresos']
+            + resultados['Cuota definitiva']
+        ) / data['salario']
     except Exception:
-        return ""
+        return 0
 
 
 def calcular_cumple_sol(data: dict, resultados: dict) -> int:
@@ -541,10 +547,12 @@ def calcular_Monto_credito_1(data: dict, resultados: dict) -> float:
 
 def calcular_Endeudamiento_Proyectado_1(data: dict, resultados: dict):
     try:
-        return _mround((resultados['Egresos volante ajustado_1'] + resultados['Capacidad de pago_1'])
-                       / resultados['Resumen Salarial del Asociado'], 0.01)
+        return (
+            resultados['Egresos volante ajustado_1']
+            + resultados['Capacidad de pago_1']
+        ) / resultados['Resumen Salarial del Asociado']
     except Exception:
-        return ""
+        return 0
 
 
 def calcular_cumple_end_1(data: dict, resultados: dict) -> int:
@@ -553,9 +561,12 @@ def calcular_cumple_end_1(data: dict, resultados: dict) -> int:
 
 def calcular_Solvencia_1(data: dict, resultados: dict):
     try:
-        return (resultados['Total egresos_1'] + resultados['Capacidad de pago_1']) / data['salario']
+        return (
+            resultados['Total egresos_1']
+            + resultados['Capacidad de pago_1']
+        ) / data['salario']
     except Exception:
-        return ""
+        return 0
 
 
 def calcular_cumple_sol_1(data: dict, resultados: dict) -> int:
@@ -625,10 +636,12 @@ def calcular_Monto_credito_2(data: dict, resultados: dict) -> float:
 
 def calcular_Endeudamiento_Proyectado_2(data: dict, resultados: dict):
     try:
-        return _mround((resultados['Egresos volante ajustado_1'] + resultados['Capacidad de pago_2'])
-                       / resultados['Resumen Salarial del Asociado'], 0.01)
+        return (
+            resultados['Egresos volante ajustado_1']
+            + resultados['Capacidad de pago_2']
+        ) / resultados['Resumen Salarial del Asociado']
     except Exception:
-        return ""
+        return 0
 
 
 def calcular_cumple_end_2(data: dict, resultados: dict) -> int:
@@ -637,9 +650,12 @@ def calcular_cumple_end_2(data: dict, resultados: dict) -> int:
 
 def calcular_Solvencia_2(data: dict, resultados: dict):
     try:
-        return (resultados['Total egresos_2'] + resultados['Capacidad de pago_2']) / data['salario']
+        return (
+            resultados['Total egresos_2']
+            + resultados['Capacidad de pago_2']
+        ) / data['salario']
     except Exception:
-        return ""
+        return 0
 
 
 def calcular_cumple_sol_2(data: dict, resultados: dict) -> int:
@@ -709,10 +725,12 @@ def calcular_Monto_credito_3(data: dict, resultados: dict) -> float:
 
 def calcular_Endeudamiento_Proyectado_3(data: dict, resultados: dict):
     try:
-        return _mround((resultados['Egresos volante ajustado_1'] + resultados['Capacidad de pago_3'])
-                       / resultados['Resumen Salarial del Asociado'], 0.01)
+        return (
+            resultados['Egresos volante ajustado_1']
+            + resultados['Capacidad de pago_3']
+        ) / resultados['Resumen Salarial del Asociado']
     except Exception:
-        return ""
+        return 0
 
 
 def calcular_cumple_end_3(data: dict, resultados: dict) -> int:
@@ -721,9 +739,12 @@ def calcular_cumple_end_3(data: dict, resultados: dict) -> int:
 
 def calcular_Solvencia_3(data: dict, resultados: dict):
     try:
-        return (resultados['Total egresos_3'] + resultados['Capacidad de pago_3']) / data['salario']
+        return (
+            resultados['Total egresos_3']
+            + resultados['Capacidad de pago_3']
+        ) / data['salario']
     except Exception:
-        return ""
+        return 0
 
 
 def calcular_cumple_sol_3(data: dict, resultados: dict) -> int:
@@ -917,6 +938,24 @@ def procesar_credito(data: dict) -> dict:
     resultados['cumple_des_b3'] = calcular_cumple_des_3(data, resultados)
     resultados['Cumple 4 criterios_b3'] = calcular_Cumple_4_criterios_3(
         data, resultados)
+    
+    campos_porcentaje = [
+    'Endeudamiento Proyectado_b1',
+    'Solvencia_b1',
+
+    'Endeudamiento Proyectado_b2',
+    'Solvencia_b2',
+
+    'Endeudamiento Proyectado_b3',
+    'Solvencia_b3',
+
+    ]
+
+    for campo in campos_porcentaje:
+        valor = resultados.get(campo)
+
+        if isinstance(valor, (int, float)):
+            resultados[campo] = f"{round(valor * 100, 2):.2f}%"
 
     return resultados
 
