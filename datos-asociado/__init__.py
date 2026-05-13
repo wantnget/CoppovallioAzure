@@ -12,7 +12,7 @@ from shared.logger import get_logger
 log = get_logger("datos-asociado")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 TABLE_NAME   = "datos_asociado"
 
 COLUMNAS_VALIDAS = {
