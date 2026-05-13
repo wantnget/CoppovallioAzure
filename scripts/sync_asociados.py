@@ -125,7 +125,6 @@ def main():
         print("ERROR: Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY", file=sys.stderr)
         sys.exit(1)
 
-    # ── 1. Leer Excel ────────────────────────────────────────────────────────────
     wb = openpyxl.load_workbook(EXCEL_PATH, read_only=True, data_only=True)
     if SHEET_NAME not in wb.sheetnames:
         print(f"ERROR: Hoja '{SHEET_NAME}' no encontrada", file=sys.stderr)
@@ -144,7 +143,6 @@ def main():
 
     print(f"Columnas mapeadas: {len(columns)}")
 
-    # Leer filas y deduplicar por cédula (última ocurrencia gana)
     seen    = {}
     skipped = 0
 
@@ -166,12 +164,10 @@ def main():
     all_records = list(seen.values())
     print(f"Registros unicos en Excel: {len(all_records)} | Saltadas: {skipped}")
 
-    # ── 2. Consultar cédulas existentes en Supabase ──────────────────────────────
     print("Consultando cedulas existentes en Supabase...")
     existing = fetch_existing_cedulas()
     print(f"Cedulas ya en Supabase: {len(existing)}")
 
-    # ── 3. Filtrar solo las nuevas ───────────────────────────────────────────────
     new_records = [r for r in all_records if r["cedula"] not in existing]
     print(f"Cedulas nuevas a insertar: {len(new_records)}")
 
@@ -179,7 +175,6 @@ def main():
         print("Sin cedulas nuevas. Nada que insertar.")
         sys.exit(0)
 
-    # ── 4. Insertar en batches ───────────────────────────────────────────────────
     total_batches = math.ceil(len(new_records) / BATCH_SIZE)
     print(f"Insertando en {total_batches} batch(es)...")
 
