@@ -48,6 +48,10 @@ CATEGORIAS_DEUDA_SECTOR = [
     "sfMicrocredito", "sectorSolidario", "srcomercio", "srservicios",
 ]
 
+# Columnas que se piden a la API de datos-asociado.
+# Pedimos solo lo que necesita motor_data; puede crecer si se requieren más campos.
+COLUMNAS_DATOS_ASOCIADO = "tipo_vivienda"
+
 
 def parsear_fecha(fecha_str: str) -> datetime | None:
     """Parsea una fecha en formato M/D/YYYY (Coopvalili) o D/M/YYYY (TU)."""
@@ -177,6 +181,46 @@ def consultar_transunion(cedula: str, primer_apellido: str,
         return None, API_FAIL
 
 
+def consultar_datos_asociado(cedula: str) -> tuple[dict | None, str]:
+    """
+    Consulta la API datos-asociado (Coppovallio) para campos extra como tipo_vivienda.
+    Devuelve (data, status).
+    """
+    url = os.environ.get("DATOS_ASOCIADO_URL", "")
+    headers = {"x-api-key": "332eecd22c97ffbfa25b1d28f408d5eb49186944064ff557441f26f18779cfcb"}
+    body = {
+        "cedula": str(cedula),
+        "columna": COLUMNAS_DATOS_ASOCIADO,
+    }
+    try:
+        resp = requests.post(url, json=body, headers=headers,
+                             timeout=TIMEOUT, verify=True)
+        log.info("consulta datos_asociado", extra={
+                 "cedula": cedula, "status": resp.status_code})
+        resp.raise_for_status()
+        return resp.json(), API_OK
+    except requests.exceptions.RequestException as e:
+        log.error("fallo datos_asociado", extra={
+                  "cedula": cedula, "error": str(e)})
+        return None, API_FAIL
+    except ValueError as e:
+        log.error("respuesta datos_asociado no es JSON",
+                  extra={"cedula": cedula, "error": str(e)})
+        return None, API_FAIL
+
+
+def extraer_tipo_vivienda(data: dict | None, fallback: Any = 0) -> Any:
+    """
+    Extrae 'tipo_vivienda' de la respuesta de datos-asociado.
+    Si el campo no existe o la data es invalida, devuelve el fallback.
+    """
+    if not isinstance(data, dict):
+        return fallback
+    datos = data.get("datos") or {}
+    tv = datos.get("tipo_vivienda")
+    return tv if tv is not None else fallback
+
+
 def _coopvalili_vacio() -> dict[str, Any]:
     return {
         "asociado": {},
@@ -282,7 +326,8 @@ def extraer_datos_transunion(data: dict | None) -> dict[str, Any]:
 
 
 def armar_detallado_want(payload: dict, coop: dict, tu: dict,
-                         radicado: str | None) -> dict[str, Any]:
+                         radicado: str | None,
+                         tipo_vivienda: Any = 0) -> dict[str, Any]:
     """Construye el dict con las variables del motor en el orden de la columna B."""
     cedula = payload.get("id", "")
     linea = payload.get("lineaCredito", "")
@@ -336,7 +381,7 @@ def armar_detallado_want(payload: dict, coop: dict, tu: dict,
         "edad":                  edad,                            # Calculo Motor
         "personasCargo":         payload.get("personasCargo", 0),  # Chat
         # Base Asociados
-        "tipoVivienda":          4,
+        "tipoVivienda":          tipo_vivienda,
         "antiguedadFondo":       antiguedad_fondo,                # Calculo Motor
         "antiguedadLaboral":     antiguedad_laboral,              # Base Asociados
         "tasaUsura":             PARAM_TASA_USURA,                # Parametro
@@ -355,11 +400,13 @@ def procesar_solicitud(payload: dict, radicado: str | None) -> dict[str, Any]:
             "meta": {
                 "coopvalili": API_NO_DATA,
                 "transunion": API_NO_DATA,
+                "datos_asociado": API_NO_DATA,
                 "mensaje": "Campo 'id' requerido",
             },
             "apis": {
                 "coopvalili": None,
                 "transunion": None,
+                "datos_asociado": None,
             },
         }
 
@@ -380,7 +427,20 @@ def procesar_solicitud(payload: dict, radicado: str | None) -> dict[str, Any]:
     if tu_status == API_OK and not (tu_raw or {}).get("resultado"):
         tu_status = API_NO_DATA
 
-    detallado = armar_detallado_want(payload, coop, tu, radicado)
+    # Datos-Asociado: trae tipo_vivienda (y otras columnas si se piden)
+    asociado_raw, asociado_status = consultar_datos_asociado(cedula_str)
+    tipo_vivienda = extraer_tipo_vivienda(
+        asociado_raw,
+        fallback=coop.get("tipoVivienda", 0),
+    )
+    # Si la API respondió OK pero no trajo el campo, marcar como no_data
+    if asociado_status == API_OK and (
+        not isinstance(asociado_raw, dict)
+        or not (asociado_raw.get("datos") or {}).get("tipo_vivienda")
+    ):
+        asociado_status = API_NO_DATA
+
+    detallado = armar_detallado_want(payload, coop, tu, radicado, tipo_vivienda)
 
     razones = []
     if coop_status == API_FAIL:
@@ -391,6 +451,10 @@ def procesar_solicitud(payload: dict, radicado: str | None) -> dict[str, Any]:
         razones.append("API TransUnion falló")
     elif tu_status == API_NO_DATA:
         razones.append("TransUnion no trajo datos")
+    if asociado_status == API_FAIL:
+        razones.append("API datos-asociado falló")
+    elif asociado_status == API_NO_DATA:
+        razones.append("datos-asociado no trajo tipo_vivienda")
 
     if not razones:
         status = "ok"
@@ -408,11 +472,13 @@ def procesar_solicitud(payload: dict, radicado: str | None) -> dict[str, Any]:
         "meta": {
             "coopvalili": coop_status,
             "transunion": tu_status,
+            "datos_asociado": asociado_status,
             "mensaje": mensaje,
         },
         "apis": {
             "coopvalili": coop_raw,
             "transunion": tu_raw,
+            "datos_asociado": asociado_raw,
         },
     }
 
@@ -420,7 +486,6 @@ def procesar_solicitud(payload: dict, radicado: str | None) -> dict[str, Any]:
 def main(req: func.HttpRequest) -> func.HttpResponse:
     log.info("request recibido", extra={"endpoint": "/api/motor_data"})
 
-    # Auth
     try:
         validar_api_key(req.headers.get("x-api-key"))
     except AuthError as exc:
@@ -442,7 +507,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     cedula = str(payload.get("id", "sin_cedula"))
 
-    # Cargar radicado de valida1 antes del procesamiento para incluirlo en el detallado
     radicado_valida1 = cargar_radicado_valida1(cedula)
 
     try:
