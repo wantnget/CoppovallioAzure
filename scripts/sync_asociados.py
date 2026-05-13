@@ -4,9 +4,9 @@ import json
 import math
 import datetime
 import unicodedata
-import openpyxl
 import urllib.request
 import urllib.error
+import openpyxl
 
 EXCEL_PATH   = "Simulador_Analisis_Creditos_V3 2025.xlsx"
 SHEET_NAME   = "Base_Asociados"
@@ -70,8 +70,37 @@ def clean_value(v):
         return v.isoformat()
     return v
 
-def supabase_upsert(rows: list[dict]):
-    url     = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?on_conflict=cedula"
+def supabase_request(url: str, method: str = "GET", body: bytes = None) -> any:
+    headers = {
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type":  "application/json",
+    }
+    req = urllib.request.Request(url, data=body, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"HTTP {e.code}: {e.read().decode()}") from e
+
+def fetch_existing_cedulas() -> set:
+    cedulas = set()
+    page    = 0
+    limit   = 1000
+    while True:
+        url  = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}?select=cedula&limit={limit}&offset={page * limit}"
+        rows = supabase_request(url)
+        if not rows:
+            break
+        for r in rows:
+            cedulas.add(r["cedula"])
+        if len(rows) < limit:
+            break
+        page += 1
+    return cedulas
+
+def supabase_insert(rows: list[dict]):
+    url     = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}"
     payload = json.dumps(rows).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -81,8 +110,7 @@ def supabase_upsert(rows: list[dict]):
             "Content-Type":  "application/json",
             "apikey":        SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Prefer":        "resolution=merge-duplicates,return=minimal",
-            "Content-Profile": "public",
+            "Prefer":        "return=minimal",
         },
     )
     try:
@@ -97,14 +125,13 @@ def main():
         print("ERROR: Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY", file=sys.stderr)
         sys.exit(1)
 
+    # ── 1. Leer Excel ────────────────────────────────────────────────────────────
     wb = openpyxl.load_workbook(EXCEL_PATH, read_only=True, data_only=True)
-
     if SHEET_NAME not in wb.sheetnames:
         print(f"ERROR: Hoja '{SHEET_NAME}' no encontrada", file=sys.stderr)
         sys.exit(1)
 
-    ws = wb[SHEET_NAME]
-
+    ws          = wb[SHEET_NAME]
     raw_headers = list(ws.iter_rows(min_row=HEADER_ROW, max_row=HEADER_ROW, values_only=True))[0]
 
     columns = []
@@ -117,12 +144,13 @@ def main():
 
     print(f"Columnas mapeadas: {len(columns)}")
 
-    records = []
+    # Leer filas y deduplicar por cédula (última ocurrencia gana)
+    seen    = {}
     skipped = 0
 
     for row in ws.iter_rows(min_row=DATA_START, values_only=True):
         row_dict = {field: clean_value(row[idx] if idx < len(row) else None) for idx, field in columns}
-        cedula = row_dict.get("cedula")
+        cedula   = row_dict.get("cedula")
         if cedula is None:
             skipped += 1
             continue
@@ -132,26 +160,37 @@ def main():
             skipped += 1
             continue
         row_dict["cedula"] = str(cedula).split(".")[0]
-        records.append(row_dict)
+        seen[row_dict["cedula"]] = row_dict
 
     wb.close()
-    print(f"Filas validas: {len(records)} | Saltadas: {skipped}")
+    all_records = list(seen.values())
+    print(f"Registros unicos en Excel: {len(all_records)} | Saltadas: {skipped}")
 
-    if not records:
-        print("No hay datos para sincronizar.")
+    # ── 2. Consultar cédulas existentes en Supabase ──────────────────────────────
+    print("Consultando cedulas existentes en Supabase...")
+    existing = fetch_existing_cedulas()
+    print(f"Cedulas ya en Supabase: {len(existing)}")
+
+    # ── 3. Filtrar solo las nuevas ───────────────────────────────────────────────
+    new_records = [r for r in all_records if r["cedula"] not in existing]
+    print(f"Cedulas nuevas a insertar: {len(new_records)}")
+
+    if not new_records:
+        print("Sin cedulas nuevas. Nada que insertar.")
         sys.exit(0)
 
-    total_batches = math.ceil(len(records) / BATCH_SIZE)
-    print(f"Iniciando upsert: {total_batches} batch(es)...")
+    # ── 4. Insertar en batches ───────────────────────────────────────────────────
+    total_batches = math.ceil(len(new_records) / BATCH_SIZE)
+    print(f"Insertando en {total_batches} batch(es)...")
 
-    for i in range(0, len(records), BATCH_SIZE):
-        batch     = records[i : i + BATCH_SIZE]
+    for i in range(0, len(new_records), BATCH_SIZE):
+        batch     = new_records[i : i + BATCH_SIZE]
         batch_num = i // BATCH_SIZE + 1
         print(f"  Batch {batch_num}/{total_batches} ({len(batch)} registros)...", end=" ")
-        supabase_upsert(batch)
+        supabase_insert(batch)
         print("OK")
 
-    print(f"Sync completado: {len(records)} registros en '{TABLE_NAME}'")
+    print(f"Completado: {len(new_records)} nuevos registros insertados en '{TABLE_NAME}'")
 
 if __name__ == "__main__":
     main()
