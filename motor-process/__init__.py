@@ -548,6 +548,13 @@ def calcular_Monto_credito_1(data: dict, resultados: dict) -> float:
     return c58
 
 
+def calcular_cuota_1(data: dict, resultados: dict):
+    monto = resultados['Monto credito_1']
+    if not isinstance(monto, (int, float)):
+        return "Revisar"
+    return float(npf.pmt(resultados['tasa_per'], resultados['N° de Periodos (n)'], -monto))
+
+
 def calcular_Endeudamiento_Proyectado_1(data: dict, resultados: dict):
     try:
         return (
@@ -637,6 +644,13 @@ def calcular_Monto_credito_2(data: dict, resultados: dict) -> float:
     return 0
 
 
+def calcular_cuota_2(data: dict, resultados: dict):
+    monto = resultados['Monto credito_2']
+    if not isinstance(monto, (int, float)):
+        return "Revisar"
+    return float(npf.pmt(resultados['tasa_per'], resultados['N° de Periodos (n)'], -monto))
+
+
 def calcular_Endeudamiento_Proyectado_2(data: dict, resultados: dict):
     try:
         return (
@@ -724,6 +738,13 @@ def calcular_Monto_credito_3(data: dict, resultados: dict) -> float:
     if c86 > d11 and c86 <= c88 and c86 >= c87:
         return c86
     return 0
+
+
+def calcular_cuota_3(data: dict, resultados: dict):
+    monto = resultados['Monto credito_3']
+    if not isinstance(monto, (int, float)):
+        return "Revisar"
+    return float(npf.pmt(resultados['tasa_per'], resultados['N° de Periodos (n)'], -monto))
 
 
 def calcular_Endeudamiento_Proyectado_3(data: dict, resultados: dict):
@@ -895,6 +916,7 @@ def procesar_credito(data: dict) -> dict:
     resultados['Monto credito_1_pre'] = calcular_Monto_credito_1_pre(
         data, resultados)
     resultados['Monto credito_1'] = calcular_Monto_credito_1(data, resultados)
+    resultados['cuota_1'] = calcular_cuota_1(data, resultados)
     resultados['Endeudamiento Proyectado_b1'] = calcular_Endeudamiento_Proyectado_1(
         data, resultados)
     resultados['cumple_end_b1'] = calcular_cumple_end_1(data, resultados)
@@ -913,6 +935,7 @@ def procesar_credito(data: dict) -> dict:
     resultados['Monto credito_2_pre'] = calcular_Monto_credito_2_pre(
         data, resultados)
     resultados['Monto credito_2'] = calcular_Monto_credito_2(data, resultados)
+    resultados['cuota_2'] = calcular_cuota_2(data, resultados)
     resultados['Endeudamiento Proyectado_b2'] = calcular_Endeudamiento_Proyectado_2(
         data, resultados)
     resultados['cumple_end_b2'] = calcular_cumple_end_2(data, resultados)
@@ -931,6 +954,7 @@ def procesar_credito(data: dict) -> dict:
     resultados['Monto credito_3_pre'] = calcular_Monto_credito_3_pre(
         data, resultados)
     resultados['Monto credito_3'] = calcular_Monto_credito_3(data, resultados)
+    resultados['cuota_3'] = calcular_cuota_3(data, resultados)
     resultados['Endeudamiento Proyectado_b3'] = calcular_Endeudamiento_Proyectado_3(
         data, resultados)
     resultados['cumple_end_b3'] = calcular_cumple_end_3(data, resultados)
@@ -941,7 +965,7 @@ def procesar_credito(data: dict) -> dict:
     resultados['cumple_des_b3'] = calcular_cumple_des_3(data, resultados)
     resultados['Cumple 4 criterios_b3'] = calcular_Cumple_4_criterios_3(
         data, resultados)
-    
+
     campos_porcentaje = [
         'Endeudamiento Proyectado_b1',
         'Solvencia_b1',
