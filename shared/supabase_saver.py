@@ -37,9 +37,9 @@ def save_valida1_supabase(radicado: str, cedula: str, data: dict) -> None:
         "radicado": radicado,
         "cedula": cedula,
         # result
-        "valida_id": result.get("valida_id"),
+        "valida_activo": result.get("valida_activo"),
         "valida_edad": result.get("valida_edad"),
-        "valida_antiguedad": result.get("valida_antiguedad"),
+        "valida_asociado": result.get("valida_asociado"),
         "valida_no_retirado": result.get("valida_no_retirado"),
         "valida1": result.get("valida1"),
         "mensaje": result.get("mensaje"),
