@@ -76,7 +76,7 @@ def save_valida1_supabase(radicado: str, cedula: str, data: dict) -> None:
     }
 
     resp = requests.post(
-        f"{_base_url()}/valida1_results",
+        f"{_base_url()}/valida1_results?on_conflict=radicado",
         headers=_headers(upsert=True),
         json=row,
         timeout=10,
@@ -278,7 +278,7 @@ def save_motor_process_supabase(radicado: str, cedula: str, data: dict) -> None:
     }
 
     resp = requests.post(
-        f"{_base_url()}/motor_process_results",
+        f"{_base_url()}/motor_process_results?on_conflict=radicado",
         headers=_headers(upsert=True),
         json=row,
         timeout=10,
