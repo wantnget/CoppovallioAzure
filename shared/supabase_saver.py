@@ -282,3 +282,21 @@ def save_motor_process_supabase(radicado: str, cedula: str, data: dict) -> None:
     )
     resp.raise_for_status()
     log.info("supabase motor_process guardado", extra={"radicado": radicado})
+
+
+def save_credito_decision_supabase(radicado: str, data: dict) -> None:
+    row = {
+        "radicado": radicado,
+        "opcion_elegida": data.get("opcion_elegida"),
+        "response": data.get("response"),
+    }
+
+    resp = requests.post(
+        f"{_base_url()}/credito_decisiones?on_conflict=radicado",
+        headers=_headers(upsert=True),
+        json=row,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    log.info("supabase credito_decision guardado",
+             extra={"radicado": radicado})
