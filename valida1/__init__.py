@@ -9,6 +9,7 @@ from shared.auth import validar_api_key
 from shared.exceptions import AuthError
 from shared.logger import get_logger
 from shared.blob_loader import save_json_blob_by_id
+from shared.supabase_saver import save_valida1_supabase
 
 log = get_logger("valida1")
 
@@ -212,6 +213,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         )
 
     cedula = str(payload.get("id", "sin_cedula"))
+    radicado = valida_out.get("radicado") or ""
+
+    try:
+        save_valida1_supabase(radicado, cedula, valida_out)
+        valida_out["_supabase_save"] = "OK"
+    except Exception as exc:
+        log.warning("fallo supabase valida1", extra={
+                    "cedula": cedula, "error": str(exc)})
+        valida_out["_supabase_save"] = f"ERROR: {str(exc)[:200]}"
 
     try:
         save_json_blob_by_id(cedula, "valida_output.json", valida_out)
